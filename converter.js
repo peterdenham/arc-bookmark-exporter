@@ -1,9 +1,9 @@
 // /**
 //  * Arc Browser Bookmark Converter
-//  * 
+//  *
 //  * This script converts Arc browser's StorableSidebar.json file into a standard HTML bookmarks file
 //  * that can be imported into other browsers like Chrome, Firefox, Safari etc.
-//  * 
+//  *
 //  * Usage:
 //  * 1. Export your Arc sidebar data by following Arc's export instructions
 //  * 2. Save the JSON file as "StorableSidebar.json" in the same directory as this script
@@ -48,17 +48,17 @@ function findItemById(items, id) {
  */
 function processContainerContent(container, items) {
     console.log(`Processing container: ${container.id}`);
-    
+
     if (!container.childrenIds || !container.childrenIds.length) {
         console.log(`No children in container: ${container.id}`);
         return [];
     }
 
     const processedItems = [];
-    
+
     for (const childId of container.childrenIds) {
         console.log(`Processing child ID: ${childId}`);
-        
+
         const item = findItemById(items, childId);
         if (!item) continue;
 
@@ -87,6 +87,16 @@ function processContainerContent(container, items) {
                         id: childItem.id
                     };
                 }
+                else if (childItem?.childrenIds.length) {
+                    const children = processContainerContent(childItem, items)
+                    return {
+                        type: 'folder',
+                        title: childItem.title || 'Untitled Folder',
+                        items: children,
+                        id: childItem.id
+                    }
+
+                }
                 return null;
             }).filter(Boolean);
 
@@ -109,16 +119,16 @@ function processContainerContent(container, items) {
  */
 async function processSpace(space, items) {
     console.log(`\nProcessing space: ${space.id}`);
-    
+
     const processedItems = [];
-    
+
     // Process pinned containers
     for (const containerId of space.containerIDs || []) {
         if (typeof containerId === 'object') {
             // Skip container type identifiers
             continue;
         }
-        
+
         const container = findItemById(items, containerId);
         if (container) {
             const containerItems = processContainerContent(container, items);
@@ -166,15 +176,15 @@ function generateHTML(bookmarks) {
 
     function generateBookmarkHTML(bookmark, depth = 1) {
         const indent = '    '.repeat(depth);
-        
+
         if (bookmark.type === 'folder') {
             let folderHtml = `${indent}<DT><H3>${bookmark.title}</H3>\n`;
             folderHtml += `${indent}<DL><p>\n`;
-            
+
             for (const item of bookmark.items) {
                 folderHtml += generateBookmarkHTML(item, depth + 1);
             }
-            
+
             folderHtml += `${indent}</DL><p>\n`;
             return folderHtml;
         } else {
@@ -198,11 +208,11 @@ function generateHTML(bookmarks) {
 async function convertJsonToBookmarks(jsonPath, outputPath) {
     try {
         console.log('Starting bookmark conversion...');
-        
+
         // Read and parse the JSON file
         const jsonContent = fs.readFileSync(jsonPath, 'utf8');
         const data = JSON.parse(jsonContent);
-        
+
         const sidebarContainer = data.sidebar.containers[1];
         const items = sidebarContainer.items;
         const spaces = sidebarContainer.spaces;
@@ -223,7 +233,7 @@ async function convertJsonToBookmarks(jsonPath, outputPath) {
 
         // Generate HTML
         const html = generateHTML(bookmarkStructure);
-        
+
         // Write to file
         fs.writeFileSync(outputPath, html, 'utf8');
         console.log(`Bookmarks file has been generated at: ${outputPath}`);
